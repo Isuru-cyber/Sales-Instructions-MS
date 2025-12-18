@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Button, StatusBadge, Modal, Select, Input } from '../components/Common';
 import { Download, Edit2, ChevronDown, Columns, CheckCircle, AlertTriangle, X } from 'lucide-react';
 import { mockStore } from '../services/mockService';
-import { Instruction, Role, InstructionStatus, QUICK_UPDATES } from '../types';
+import { Instruction, Role, InstructionStatus, QUICK_UPDATES, User } from '../types';
 import { useAuth } from '../App';
 
 // Define available columns with updated order
@@ -24,6 +24,7 @@ const AVAILABLE_COLUMNS = [
 export const ReviewInstructions: React.FC = () => {
     const { user } = useAuth();
     const [instructions, setInstructions] = useState<Instruction[]>([]);
+    const [users, setUsers] = useState<User[]>([]);
     const [selectedInst, setSelectedInst] = useState<Instruction | null>(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     
@@ -70,9 +71,15 @@ export const ReviewInstructions: React.FC = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const loadData = () => {
+    const loadData = async () => {
         if (user) {
-            setInstructions(mockStore.getInstructions(user));
+            // Parallel fetch for instructions and users (for lookup)
+            const [inst, usrs] = await Promise.all([
+                mockStore.getInstructions(user),
+                mockStore.getUsers()
+            ]);
+            setInstructions(inst);
+            setUsers(usrs);
         }
     };
 
@@ -83,20 +90,20 @@ export const ReviewInstructions: React.FC = () => {
         
         return {
             assignedTo: Array.from(new Set(instructions.map(i => {
-                const u = mockStore.users.find(u => u.id === i.assignedCommercialUserId);
+                const u = users.find(u => u.id === i.assignedCommercialUserId);
                 return u ? u.shortName : 'Unassigned';
             }))).sort(),
             statuses: Object.values(InstructionStatus),
             updates: getUnique('currentUpdate'),
             submitters: getUnique('creName')
         };
-    }, [instructions]);
+    }, [instructions, users]);
 
 
     // --- Filtering Logic ---
     const filteredInstructions = useMemo(() => {
         return instructions.filter(inst => {
-            const u = mockStore.users.find(u => u.id === inst.assignedCommercialUserId);
+            const u = users.find(u => u.id === inst.assignedCommercialUserId);
             const assignedShortName = u ? u.shortName : 'Unassigned';
 
             const matchSO = inst.salesOrder.toLowerCase().includes(filters.salesOrder.toLowerCase());
@@ -108,7 +115,7 @@ export const ReviewInstructions: React.FC = () => {
 
             return matchSO && matchPO && matchAssigned && matchStatus && matchUpdate && matchSubmitter;
         });
-    }, [instructions, filters]);
+    }, [instructions, filters, users]);
 
     const hasActiveFilters = useMemo(() => {
         return Object.values(filters).some(val => val !== '');
@@ -130,10 +137,10 @@ export const ReviewInstructions: React.FC = () => {
         setIsEditModalOpen(true);
     };
 
-    const handleInlineUpdate = (id: number, field: 'status' | 'currentUpdate', value: string) => {
+    const handleInlineUpdate = async (id: number, field: 'status' | 'currentUpdate', value: string) => {
         if (!user) return;
         try {
-            mockStore.updateInstruction(id, { [field]: value }, user);
+            await mockStore.updateInstruction(id, { [field]: value }, user);
             loadData();
             showNotification(`${field === 'status' ? 'Status' : 'Update'} changed successfully`);
         } catch (error) {
@@ -141,10 +148,10 @@ export const ReviewInstructions: React.FC = () => {
         }
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!selectedInst || !user) return;
         
-        mockStore.updateInstruction(selectedInst.id, {
+        await mockStore.updateInstruction(selectedInst.id, {
             commentsSales: editCommentsSales,
             commentsCommercial: editCommentsCommercial,
             status: editStatus,
@@ -187,7 +194,7 @@ export const ReviewInstructions: React.FC = () => {
             ...filteredInstructions.map(row => AVAILABLE_COLUMNS.map(col => {
                 let val: any = row[col.key as keyof Instruction];
                 if (col.key === 'assignedTo') {
-                    const u = mockStore.users.find(u => u.id === row.assignedCommercialUserId);
+                    const u = users.find(u => u.id === row.assignedCommercialUserId);
                     val = u ? u.shortName : 'Unassigned';
                 }
                 if (col.key === 'createdAt') val = new Date(row.createdAt).toLocaleDateString();
@@ -217,7 +224,7 @@ export const ReviewInstructions: React.FC = () => {
             case 'salesOrder': return <span className="text-gray-600 whitespace-nowrap">{inst.salesOrder}</span>;
             case 'productionOrder': return <span className="text-gray-600 whitespace-nowrap">{inst.productionOrder || '-'}</span>;
             case 'assignedTo': 
-                const assignedUser = mockStore.users.find(u => u.id === inst.assignedCommercialUserId);
+                const assignedUser = users.find(u => u.id === inst.assignedCommercialUserId);
                 return <span className="text-gray-600 font-medium whitespace-nowrap">{assignedUser ? assignedUser.shortName : 'Unassigned'}</span>;
             case 'status': 
                 if (canEditCommercial) {

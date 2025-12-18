@@ -10,17 +10,20 @@ export const Dashboard: React.FC = () => {
     const [stats, setStats] = useState<any>(null);
     const [recentInstructions, setRecentInstructions] = useState<any[]>([]);
 
-    useEffect(() => {
+    const loadData = async () => {
         if (!user) return;
-        const data = mockStore.getKPIData();
+        const data = await mockStore.getKPIData();
         setStats(data);
-        const instructions = mockStore.getInstructions(user).slice(-5).reverse();
-        setRecentInstructions(instructions);
+        const instructions = await mockStore.getInstructions(user);
+        setRecentInstructions(instructions.slice(0, 5));
+    };
+
+    useEffect(() => {
+        loadData();
     }, [user]);
 
-    if (!stats) return <div>Loading...</div>;
+    if (!stats) return <div className="p-8 text-center text-gray-500">Loading Dashboard...</div>;
 
-    // Mock chart data
     const lineData = [
         { name: 'Mon', submissions: 12 },
         { name: 'Tue', submissions: 19 },
@@ -32,7 +35,8 @@ export const Dashboard: React.FC = () => {
     ];
 
     return (
-        <div className="h-full overflow-y-auto pr-2 space-y-6">
+        <div className="h-full overflow-y-auto pr-2 space-y-6 pb-6">
+            {/* Stats Overview */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <Card className="flex items-center gap-4 border-l-4 border-l-blue-500">
                     <div className="p-3 bg-blue-50 text-blue-600 rounded-full">

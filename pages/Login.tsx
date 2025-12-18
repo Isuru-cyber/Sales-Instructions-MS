@@ -8,17 +8,25 @@ export const Login: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const success = login(username, password);
-    if (success) {
-      navigate('/dashboard');
-    } else {
-      setError('Invalid username or credentials. Try "admin", "sales1", or "comm1".');
+    setLoading(true);
+    try {
+      const success = await login(username, password);
+      if (success) {
+        navigate('/dashboard');
+      } else {
+        setError('Invalid username or password. Please try again.');
+      }
+    } catch (e) {
+      setError('Login failed. Please check connection.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -29,7 +37,7 @@ export const Login: React.FC = () => {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-indigo-50 text-primary mb-4">
                 <Lock size={32} />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">DeliveryFlow</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Instructions MS</h1>
             <p className="text-gray-500 mt-2">Sign in to manage instructions</p>
         </div>
 
@@ -51,12 +59,12 @@ export const Login: React.FC = () => {
           
           {error && <div className="p-3 rounded-lg bg-red-50 text-red-600 text-sm text-center font-medium">{error}</div>}
 
-          <Button type="submit" className="w-full py-3 text-lg shadow-md hover:shadow-lg transition-all">
-            Sign In
+          <Button type="submit" disabled={loading} className="w-full py-3 text-lg shadow-md hover:shadow-lg transition-all">
+            {loading ? 'Signing In...' : 'Sign In'}
           </Button>
 
           <div className="text-center text-xs text-gray-400 mt-4">
-              Demo Users: admin, sales1, comm1
+              Authorized personnel only. Logs are recorded.
           </div>
         </form>
       </Card>

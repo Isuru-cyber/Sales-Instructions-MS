@@ -13,7 +13,7 @@ import { mockStore } from './services/mockService';
 // --- Auth Context ---
 interface AuthContextType {
   user: User | null;
-  login: (u: string, p: string) => boolean;
+  login: (u: string, p: string) => Promise<boolean>;
   logout: () => void;
 }
 
@@ -24,9 +24,9 @@ export const useAuth = () => useContext(AuthContext);
 const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
 
-  const login = (u: string, p: string) => {
-    // Simple mock auth, password ignored for demo
-    const loggedUser = mockStore.login(u);
+  const login = async (u: string, p: string) => {
+    // Pass both username and password to the store
+    const loggedUser = await mockStore.login(u, p);
     if (loggedUser) {
       setUser(loggedUser);
       return true;
@@ -35,7 +35,9 @@ const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   };
 
   const logout = () => {
-    mockStore.logout();
+    if (user) {
+        mockStore.logout(user);
+    }
     setUser(null);
   };
 

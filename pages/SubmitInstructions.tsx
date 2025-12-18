@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, Button, Input, Modal } from '../components/Common';
 import { Plus, Trash2, Save, AlertCircle } from 'lucide-react';
 import { useAuth } from '../App';
 import { mockStore } from '../services/mockService';
-import { Instruction } from '../types';
 
 interface RowData {
   id: number;
@@ -33,14 +32,12 @@ export const SubmitInstructions: React.FC = () => {
     };
 
     const updateRow = (id: number, field: keyof RowData, value: string) => {
-        // Auto-convert to uppercase
         const upperValue = value.toUpperCase();
         setRows(rows.map(r => r.id === id ? { ...r, [field]: upperValue } : r));
     };
 
     const validate = () => {
         setError('');
-        // Check required fields
         if (!customerCode || !location) {
             setError('Customer Code and Location are required.');
             return false;
@@ -51,15 +48,12 @@ export const SubmitInstructions: React.FC = () => {
                 return false;
             }
         }
-
-        // Check client-side duplicates
         const combos = rows.map(r => `${r.salesOrder}-${r.productionOrder}`);
         const uniqueCombos = new Set(combos);
         if (uniqueCombos.size !== combos.length) {
             setError('Duplicate Sales Order + Production Order combinations in current form.');
             return false;
         }
-
         return true;
     };
 
@@ -73,7 +67,6 @@ export const SubmitInstructions: React.FC = () => {
         setError('');
 
         try {
-            // Transform rows to instruction payload
             const payload = rows.map(r => ({
                 customerCode,
                 location,
@@ -82,10 +75,8 @@ export const SubmitInstructions: React.FC = () => {
                 commentsSales: globalComments,
             }));
 
-            // Simulate server latency
             await new Promise(resolve => setTimeout(resolve, 800));
-
-            mockStore.submitInstructions(payload, user);
+            await mockStore.submitInstructions(payload, user);
             
             setSuccessMessage(`Successfully submitted ${rows.length} instructions.`);
             setRows([{ id: Date.now(), salesOrder: '', productionOrder: '' }]);
@@ -94,9 +85,7 @@ export const SubmitInstructions: React.FC = () => {
             setGlobalComments('');
             setIsPreviewOpen(false);
 
-            // Hide success message after 3s
             setTimeout(() => setSuccessMessage(''), 3000);
-
         } catch (err: any) {
             setError(err.message || 'Submission failed.');
         } finally {
@@ -142,10 +131,11 @@ export const SubmitInstructions: React.FC = () => {
                             onChange={(e) => setLocation(e.target.value.toUpperCase())}
                         />
                     </div>
-                    <div className="w-full">
+                    <div className="w-full relative">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Global Comments (Optional)</label>
                         <textarea 
-                            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[80px]"
+                            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[100px] transition-all"
+                            placeholder="e.g. Special loading required for sensitive goods..."
                             value={globalComments}
                             onChange={(e) => setGlobalComments(e.target.value)}
                         />
@@ -213,7 +203,7 @@ export const SubmitInstructions: React.FC = () => {
                         <div className="bg-blue-50 p-4 rounded-lg text-sm text-blue-800">
                             <p><strong>Customer:</strong> {customerCode}</p>
                             <p><strong>Location:</strong> {location}</p>
-                            {globalComments && <p><strong>Comments:</strong> {globalComments}</p>}
+                            {globalComments && <p className="mt-2 italic font-medium">"{globalComments}"</p>}
                         </div>
 
                         <table className="w-full text-sm text-left">

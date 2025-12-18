@@ -1,17 +1,31 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Card } from '../components/Common';
 import { mockStore } from '../services/mockService';
 import { useAuth } from '../App';
-import { Role } from '../types';
+import { Role, ActivityLog } from '../types';
 
 export const ActivityLogs: React.FC = () => {
     const { user } = useAuth();
-    // In a real app, this would be a paginated API call
-    const logs = mockStore.logs;
+    const [logs, setLogs] = useState<ActivityLog[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const load = async () => {
+            if (user?.role === Role.Admin) {
+                setLoading(true);
+                const data = await mockStore.getLogs();
+                setLogs(data);
+                setLoading(false);
+            }
+        };
+        load();
+    }, [user]);
 
     if (user?.role !== Role.Admin) {
         return <div className="text-center p-10 text-gray-500">Access Denied</div>;
     }
+
+    if (loading) return <div className="text-center p-10 text-gray-500">Loading Logs...</div>;
 
     return (
         <div className="h-full overflow-y-auto pr-2">

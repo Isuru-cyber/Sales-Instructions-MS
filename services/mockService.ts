@@ -1,336 +1,402 @@
+import { supabase } from './supabaseClient';
 import { Role, User, Instruction, InstructionStatus, CustomerCode, ActivityLog, AppSettings } from '../types';
 
-// --- Initial Mock Data ---
+// Map DB snake_case to TS camelCase
+const mapUser = (u: any): User => ({
+    id: u.id,
+    username: u.username,
+    fullName: u.full_name,
+    shortName: u.short_name,
+    role: u.role as Role,
+    isActive: u.is_active
+});
 
-const INITIAL_USERS: User[] = [
-  { id: 1, username: 'admin', fullName: 'Admin User', shortName: 'ADM', role: Role.Admin, isActive: true },
-  { id: 2, username: 'sales1', fullName: 'Sales Representative 1', shortName: 'SL1', role: Role.Sales, isActive: true },
-  { id: 3, username: 'comm1', fullName: 'Commercial Manager 1', shortName: 'CM1', role: Role.Commercial, isActive: true },
-  { id: 4, username: 'comm2', fullName: 'Commercial Manager 2', shortName: 'CM2', role: Role.Commercial, isActive: true },
-  { id: 5, username: 'sales2', fullName: 'Sales Representative 2', shortName: 'SL2', role: Role.Sales, isActive: true },
-];
+const mapInstruction = (i: any): Instruction => ({
+    id: i.id,
+    referenceNumber: i.reference_number,
+    createdAt: i.created_at,
+    creName: i.cre_name,
+    creUserId: i.cre_user_id,
+    customerCode: i.customer_code,
+    location: i.location,
+    salesOrder: i.sales_order,
+    productionOrder: i.production_order,
+    assignedCommercialUserId: i.assigned_commercial_user_id,
+    status: i.status as InstructionStatus,
+    currentUpdate: i.current_update,
+    commentsSales: i.comments_sales,
+    commentsCommercial: i.comments_commercial,
+    completedAt: i.completed_at,
+    isDeleted: i.is_deleted
+});
 
-const INITIAL_CODES: CustomerCode[] = [
-  { id: 1, code: 'CUST001', description: 'Tech Corp', commercialUserId: 3, status: 'Active', createdAt: '2025-01-15T10:00:00Z' },
-  { id: 2, code: 'CUST002', description: 'Logistics Ltd', commercialUserId: 4, status: 'Active', createdAt: '2025-02-20T14:30:00Z' },
-  { id: 3, code: 'CUST003', description: 'Retail Inc', commercialUserId: 3, status: 'Active', createdAt: '2025-03-05T09:15:00Z' },
-  { id: 4, code: 'B00019-T', description: 'Bodyline', commercialUserId: 3, status: 'Active', createdAt: '2025-12-12T08:00:00Z' },
-];
+const mapCode = (c: any): CustomerCode => ({
+    id: c.id,
+    code: c.code,
+    description: c.description,
+    commercialUserId: c.commercial_user_id,
+    status: c.status,
+    createdAt: c.created_at
+});
 
-const INITIAL_SETTINGS: AppSettings = {
-  cutoffEnabled: true,
-  cutoffStart: '10:00',
-  cutoffEnd: '15:00',
-  autoDeleteDays: 14,
-  lastBackup: new Date().toISOString(),
-};
+class SupabaseStore {
+  
+  async login(username: string, password?: string): Promise<User | null> {
+    const trimmedUsername = (username || '').trim();
+    const trimmedPassword = (password || '').trim();
 
-// Generate some mock instructions
-const generateMockInstructions = (): Instruction[] => {
-  const instructions: Instruction[] = [];
-  const now = new Date();
-  for (let i = 0; i < 15; i++) {
-    const isCompleted = i % 5 === 0;
-    instructions.push({
-      id: i + 1,
-      referenceNumber: `202405${10 + i}SL100${i}`,
-      createdAt: new Date(now.getTime() - i * 86400000).toISOString(),
-      creName: i % 2 === 0 ? 'SL1' : 'SL2',
-      creUserId: i % 2 === 0 ? 2 : 5,
-      customerCode: i % 3 === 0 ? 'CUST001' : 'CUST002',
-      location: i % 2 === 0 ? 'New York' : 'London',
-      salesOrder: `SO-900${i}`,
-      productionOrder: `PO-800${i}`,
-      assignedCommercialUserId: i % 3 === 0 ? 3 : 4,
-      status: isCompleted ? InstructionStatus.Completed : InstructionStatus.Pending,
-      currentUpdate: isCompleted ? 'Approved' : 'Under review',
-      commentsSales: `Initial request for order ${i}`,
-      commentsCommercial: isCompleted ? 'Processed successfully' : '',
-      completedAt: isCompleted ? new Date(now.getTime() - i * 86400000 + 3600000).toISOString() : undefined,
-      isDeleted: false,
-    });
-  }
-  return instructions;
-};
-
-// --- In-Memory Store ---
-
-class MockStore {
-  users = INITIAL_USERS;
-  customerCodes = INITIAL_CODES;
-  instructions = generateMockInstructions();
-  settings = INITIAL_SETTINGS;
-  logs: ActivityLog[] = [];
-  currentUser: User | null = null;
-  referenceCounter = 100;
-
-  login(username: string): User | null {
-    const user = this.users.find(u => u.username === username && u.isActive);
-    if (user) {
-      this.currentUser = user;
-      this.addLog(user.id, 'Login', 'User logged in');
-      return user;
+    try {
+        const { data, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('username', trimmedUsername)
+            .eq('password', trimmedPassword) // Explicit password check in DB
+            .eq('is_active', true)
+            .single();
+        
+        if (data && !error) {
+            const user = mapUser(data);
+            await this.addLog(user.id, user.username, 'Login', 'User logged in (Database)');
+            return user;
+        }
+    } catch (e) {
+        console.error("Database login failed:", e);
     }
+    
     return null;
   }
 
-  logout() {
-    if (this.currentUser) {
-      this.addLog(this.currentUser.id, 'Logout', 'User logged out');
-      this.currentUser = null;
+  async logout(user: User) {
+    try {
+        await this.addLog(user.id, user.username, 'Logout', 'User logged out');
+    } catch (e) {}
+  }
+
+  async addLog(userId: number, userName: string, action: string, details: string) {
+    try {
+        await supabase.from('activity_logs').insert({
+            user_id: userId,
+            user_name: userName,
+            action,
+            details,
+            timestamp: new Date().toISOString()
+        });
+    } catch (e) {
+        console.warn("Could not write log to Supabase.");
     }
   }
 
-  addLog(userId: number, action: string, details: string) {
-    this.logs.unshift({
-      id: this.logs.length + 1,
-      userId,
-      userName: this.users.find(u => u.id === userId)?.username || 'Unknown',
-      action,
-      details,
-      timestamp: new Date().toISOString(),
-    });
+  async getLogs(): Promise<ActivityLog[]> {
+    try {
+        const { data } = await supabase.from('activity_logs').select('*').order('timestamp', { ascending: false }).limit(100);
+        return (data || []).map((l: any) => ({
+            id: l.id,
+            userId: l.user_id,
+            userName: l.user_name,
+            action: l.action,
+            details: l.details,
+            timestamp: l.timestamp
+        }));
+    } catch (e) {
+        return [];
+    }
   }
 
-  // --- User Management ---
-  addUser(user: Partial<User>, adminUser: User): void {
-      const newUser: User = {
-          id: this.users.length + 1,
-          username: user.username || `User${this.users.length + 1}`,
-          fullName: user.fullName || user.username || 'New User',
-          shortName: user.shortName || 'USR',
-          role: user.role || Role.Sales,
-          isActive: true
-      };
-      this.users.push(newUser);
-      this.addLog(adminUser.id, 'Add User', `Added user ${newUser.username} (${newUser.role})`);
+  async getUsers(): Promise<User[]> {
+      try {
+          const { data } = await supabase.from('users').select('*').order('id');
+          return (data || []).map(mapUser);
+      } catch (e) {
+          return [];
+      }
   }
 
-  updateUser(id: number, updates: Partial<User> & { password?: string }, adminUser: User): void {
-      const idx = this.users.findIndex(u => u.id === id);
-      if (idx !== -1) {
-          const updatedUser = { ...this.users[idx], ...updates };
-          delete (updatedUser as any).password; // Don't store password in user object for this mock
-          this.users[idx] = updatedUser;
-          
-          let details = `Updated details for ${updatedUser.username}`;
-          if (updates.password) {
-              details += ' (Password Reset)';
+  async addUser(user: Partial<User> & { password?: string }, adminUser: User): Promise<void> {
+      const { data, error } = await supabase.from('users').insert({
+          username: user.username,
+          password: user.password || user.username, // Default password is username
+          full_name: user.fullName,
+          short_name: user.shortName,
+          role: user.role,
+          is_active: true
+      }).select().single();
+
+      if (!error && data) {
+          await this.addLog(adminUser.id, adminUser.username, 'Add User', `Added user ${data.username}`);
+      }
+  }
+
+  async updateUser(id: number, updates: Partial<User> & { password?: string }, adminUser: User): Promise<void> {
+      const payload: any = {};
+      if (updates.fullName) payload.full_name = updates.fullName;
+      if (updates.username) payload.username = updates.username;
+      if (updates.role) payload.role = updates.role;
+      if (updates.password) payload.password = updates.password;
+
+      const { error } = await supabase.from('users').update(payload).eq('id', id);
+      
+      if (!error) {
+          let details = `Updated details for user ID ${id}`;
+          if (updates.password) details += ' (Password Reset)';
+          await this.addLog(adminUser.id, adminUser.username, 'Update User', details);
+      }
+  }
+
+  async toggleUserStatus(id: number, adminUser: User): Promise<void> {
+      const { data } = await supabase.from('users').select('is_active').eq('id', id).single();
+      if (data) {
+          const newStatus = !data.is_active;
+          await supabase.from('users').update({ is_active: newStatus }).eq('id', id);
+          await this.addLog(adminUser.id, adminUser.username, 'Update User', `Set status ${newStatus ? 'Active' : 'Inactive'} for user ID ${id}`);
+      }
+  }
+
+  async deleteUser(id: number, adminUser: User): Promise<void> {
+      await supabase.from('users').delete().eq('id', id);
+      await this.addLog(adminUser.id, adminUser.username, 'Delete User', `Deleted user ID ${id}`);
+  }
+
+  async changePassword(userId: number, current: string, newPass: string): Promise<boolean> {
+      try {
+          const { data } = await supabase.from('users').select('password, username').eq('id', userId).single();
+          if (data && data.password === current) {
+              await supabase.from('users').update({ password: newPass }).eq('id', userId);
+              await this.addLog(userId, data.username, 'Change Password', 'User changed their own password');
+              return true;
           }
-          this.addLog(adminUser.id, 'Update User', details);
-      }
-  }
-
-  toggleUserStatus(userId: number, adminUser: User): void {
-      const user = this.users.find(u => u.id === userId);
-      if (user) {
-          user.isActive = !user.isActive;
-          this.addLog(adminUser.id, 'Update User', `Set status ${user.isActive ? 'Active' : 'Inactive'} for ${user.username}`);
-      }
-  }
-
-  deleteUser(userId: number, adminUser: User): void {
-      this.users = this.users.filter(u => u.id !== userId);
-      this.addLog(adminUser.id, 'Delete User', `Deleted user ID ${userId}`);
-  }
-
-  resetUserPassword(userId: number, adminUser: User): void {
-      const user = this.users.find(u => u.id === userId);
-      if (user) {
-          this.addLog(adminUser.id, 'Reset Password', `Reset password for user ${user.username}`);
-      }
-  }
-
-  changePassword(userId: number, current: string, newPass: string): boolean {
-      if (current && newPass) {
-          this.addLog(userId, 'Change Password', 'User changed their own password');
-          return true;
-      }
+      } catch (e) {}
       return false;
   }
 
-  // --- Mapping Management ---
-  addMapping(code: string, description: string, commercialUserId: number | null, adminUser: User): void {
-      this.customerCodes.push({
-          id: this.customerCodes.length + 1,
+  async getCustomerCodes(): Promise<CustomerCode[]> {
+      try {
+          const { data } = await supabase.from('customer_codes').select('*').order('code');
+          return (data || []).map(mapCode);
+      } catch (e) {
+          return [];
+      }
+  }
+
+  async addMapping(code: string, description: string, commercialUserId: number | null, adminUser: User): Promise<void> {
+      await supabase.from('customer_codes').insert({
           code,
           description,
-          commercialUserId,
-          status: 'Active',
-          createdAt: new Date().toISOString()
+          commercial_user_id: commercialUserId,
+          status: 'Active'
       });
-      this.addLog(adminUser.id, 'Add Mapping', `Added mapping for ${code}`);
+      await this.addLog(adminUser.id, adminUser.username, 'Add Mapping', `Added mapping for ${code}`);
   }
 
-  updateMapping(id: number, updates: Partial<CustomerCode>, adminUser: User): void {
-      const idx = this.customerCodes.findIndex(c => c.id === id);
-      if (idx !== -1) {
-          this.customerCodes[idx] = { ...this.customerCodes[idx], ...updates };
-          this.addLog(adminUser.id, 'Update Mapping', `Updated mapping for ${this.customerCodes[idx].code}`);
-      }
-  }
-
-  deleteMapping(id: number, adminUser: User): void {
-      const mapping = this.customerCodes.find(c => c.id === id);
-      if (mapping) {
-          this.customerCodes = this.customerCodes.filter(c => c.id !== id);
-          this.addLog(adminUser.id, 'Delete Mapping', `Deleted mapping for ${mapping.code}`);
-      }
-  }
-
-  // --- Data Management ---
-  getBackupData(): string {
-      return JSON.stringify({
-          users: this.users,
-          customerCodes: this.customerCodes,
-          instructions: this.instructions,
-          settings: this.settings,
-          logs: this.logs
-      }, null, 2);
-  }
-
-  performCleanup(adminUser: User): number {
-      const days = this.settings.autoDeleteDays;
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - days);
-
-      const initialCount = this.instructions.length;
-      this.instructions = this.instructions.filter(i => 
-        !(i.status === InstructionStatus.Completed && i.completedAt && new Date(i.completedAt) < cutoffDate)
-      );
-
-      const deletedCount = initialCount - this.instructions.length;
+  async updateMapping(id: number, updates: Partial<CustomerCode>, adminUser: User): Promise<void> {
+      const payload: any = {};
+      if (updates.description !== undefined) payload.description = updates.description;
+      if (updates.commercialUserId !== undefined) payload.commercial_user_id = updates.commercialUserId;
       
-      if (deletedCount > 0) {
-        this.addLog(adminUser.id, 'Cleanup', `Removed ${deletedCount} records older than ${days} days.`);
-      }
-      
-      return deletedCount;
+      await supabase.from('customer_codes').update(payload).eq('id', id);
+      await this.addLog(adminUser.id, adminUser.username, 'Update Mapping', `Updated mapping ID ${id}`);
   }
 
-  getInstructions(user: User): Instruction[] {
-    if (user.role === Role.Admin) {
-      return this.instructions.filter(i => !i.isDeleted);
-    } else if (user.role === Role.Sales) {
-      return this.instructions.filter(i => i.creUserId === user.id && !i.isDeleted);
-    } else if (user.role === Role.Commercial) {
-      return this.instructions.filter(i => i.assignedCommercialUserId === user.id && !i.isDeleted);
+  async deleteMapping(id: number, adminUser: User): Promise<void> {
+      await supabase.from('customer_codes').delete().eq('id', id);
+      await this.addLog(adminUser.id, adminUser.username, 'Delete Mapping', `Deleted mapping ID ${id}`);
+  }
+
+  async getSettings(): Promise<AppSettings> {
+      try {
+          const { data } = await supabase.from('app_settings').select('*').limit(1).single();
+          if (data) {
+              return {
+                  cutoffEnabled: data.cutoff_enabled,
+                  cutoffStart: data.cutoff_start,
+                  cutoffEnd: data.cutoff_end,
+                  autoDeleteDays: data.auto_delete_days,
+                  lastBackup: null
+              };
+          }
+      } catch (e) {}
+      return {
+          cutoffEnabled: false,
+          cutoffStart: "10:00",
+          cutoffEnd: "15:00",
+          autoDeleteDays: 14,
+          lastBackup: null
+      };
+  }
+
+  async saveSettings(settings: AppSettings): Promise<void> {
+      try {
+          const { data } = await supabase.from('app_settings').select('id').limit(1);
+          if (data && data.length > 0) {
+              await supabase.from('app_settings').update({
+                  cutoff_enabled: settings.cutoffEnabled,
+                  cutoff_start: settings.cutoffStart,
+                  cutoff_end: settings.cutoffEnd,
+                  auto_delete_days: settings.autoDeleteDays
+              }).eq('id', data[0].id);
+          } else {
+               await supabase.from('app_settings').insert({
+                  cutoff_enabled: settings.cutoffEnabled,
+                  cutoff_start: settings.cutoffStart,
+                  cutoff_end: settings.cutoffEnd,
+                  auto_delete_days: settings.autoDeleteDays
+              });
+          }
+      } catch (e) {}
+  }
+
+  async getBackupData(): Promise<string> {
+      return JSON.stringify({ message: "Backup download not supported via client-side in this version" });
+  }
+
+  async performCleanup(adminUser: User): Promise<number> {
+     const settings = await this.getSettings();
+     const days = settings.autoDeleteDays;
+     const cutoffDate = new Date();
+     cutoffDate.setDate(cutoffDate.getDate() - days);
+     
+     try {
+         const { data } = await supabase
+            .from('instructions')
+            .delete()
+            .eq('status', InstructionStatus.Completed)
+            .lt('completed_at', cutoffDate.toISOString())
+            .select();
+         
+         const count = data ? data.length : 0;
+         if (count > 0) {
+            await this.addLog(adminUser.id, adminUser.username, 'Cleanup', `Removed ${count} records older than ${days} days.`);
+         }
+         return count;
+     } catch (e) {
+         return 0;
+     }
+  }
+
+  async getInstructions(user: User): Promise<Instruction[]> {
+    try {
+        let query = supabase.from('instructions').select('*').eq('is_deleted', false).order('created_at', { ascending: false });
+
+        // Sales users can only see their own instructions
+        if (user.role === Role.Sales) {
+            query = query.eq('cre_user_id', user.id);
+        }
+        
+        // Per user request: Admin and Commercial users see ALL instructions.
+        // We do not add any additional filtering for these roles.
+
+        const { data } = await query;
+        return (data || []).map(mapInstruction);
+    } catch (e) {
+        return [];
     }
-    return [];
   }
 
-  submitInstructions(data: Partial<Instruction>[], user: User): boolean {
-    if (this.settings.cutoffEnabled) {
+  async submitInstructions(data: Partial<Instruction>[], user: User): Promise<boolean> {
+    const settings = await this.getSettings();
+    
+    if (settings.cutoffEnabled) {
       const now = new Date();
-      const currentHours = now.getHours();
-      const currentMinutes = now.getMinutes();
-      const [startH, startM] = this.settings.cutoffStart.split(':').map(Number);
-      const [endH, endM] = this.settings.cutoffEnd.split(':').map(Number);
-      
-      const currentTimeVal = currentHours * 60 + currentMinutes;
+      const currentTimeVal = now.getHours() * 60 + now.getMinutes();
+      const [startH, startM] = settings.cutoffStart.split(':').map(Number);
+      const [endH, endM] = settings.cutoffEnd.split(':').map(Number);
       const startTimeVal = startH * 60 + startM;
       const endTimeVal = endH * 60 + endM;
 
       if (currentTimeVal >= startTimeVal && currentTimeVal <= endTimeVal) {
-        throw new Error(`Submission blocked. Cutoff active between ${this.settings.cutoffStart} and ${this.settings.cutoffEnd}.`);
+        throw new Error(`Submission blocked. Cutoff active between ${settings.cutoffStart} and ${settings.cutoffEnd}.`);
       }
     }
 
-    const batchRef = `REF-${Date.now()}`;
-    const newInstructions: Instruction[] = data.map((item, index) => {
-        const codeMapping = this.customerCodes.find(c => c.code === item.customerCode);
+    const allCodes = await this.getCustomerCodes();
+    
+    let countVal = 0;
+    try {
+        const { count } = await supabase.from('instructions').select('*', { count: 'exact', head: true });
+        countVal = count || 0;
+    } catch (e) {}
+    
+    let refCounter = countVal + 100;
+
+    const payload = data.map((item, index) => {
+        const codeMapping = allCodes.find(c => c.code === item.customerCode);
         const assignedUser = codeMapping ? codeMapping.commercialUserId : null;
 
-        this.referenceCounter++;
+        refCounter++;
         const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-        const refNum = `${dateStr}${user.shortName}${String(this.referenceCounter).padStart(3, '0')}`;
+        const refNum = `${dateStr}${user.shortName}${String(refCounter + index).padStart(3, '0')}`;
 
         return {
-            id: this.instructions.length + 1 + index,
-            referenceNumber: refNum,
-            createdAt: new Date().toISOString(),
-            creName: user.shortName,
-            creUserId: user.id,
-            customerCode: item.customerCode || '',
+            reference_number: refNum,
+            created_at: new Date().toISOString(),
+            cre_name: user.shortName,
+            cre_user_id: user.id,
+            customer_code: item.customerCode || '',
             location: item.location || '',
-            salesOrder: item.salesOrder || '',
-            productionOrder: item.productionOrder || '',
-            assignedCommercialUserId: assignedUser,
+            sales_order: item.salesOrder || '',
+            production_order: item.productionOrder || '',
+            assigned_commercial_user_id: assignedUser,
             status: InstructionStatus.Pending,
-            currentUpdate: '',
-            commentsSales: item.commentsSales || '',
-            commentsCommercial: '',
-            isDeleted: false
-        } as Instruction;
+            comments_sales: item.commentsSales || '',
+            comments_commercial: '',
+            is_deleted: false
+        };
     });
 
-    for (const ni of newInstructions) {
-        const exists = this.instructions.find(i => 
-            !i.isDeleted && 
-            i.salesOrder === ni.salesOrder && 
-            i.productionOrder === ni.productionOrder
-        );
-        if (exists) {
-            throw new Error(`Duplicate detected on server: SO ${ni.salesOrder} / PO ${ni.productionOrder}`);
+    const { error } = await supabase.from('instructions').insert(payload);
+    if (error) throw new Error(error.message);
+
+    await this.addLog(user.id, user.username, 'Submit Instructions', `Submitted ${payload.length} instructions.`);
+    
+    const uniqueCodes = Array.from(new Set(payload.map(i => i.customer_code)));
+    for (const code of uniqueCodes) {
+        if (!allCodes.find(c => c.code === code)) {
+            await this.addMapping(code, 'Auto-created', null, user);
         }
     }
-
-    this.instructions.push(...newInstructions);
-    this.addLog(user.id, 'Submit Instructions', `Submitted ${newInstructions.length} instructions. Batch: ${batchRef}`);
-    
-    // If unknown code, add it
-    const uniqueCodes = Array.from(new Set(newInstructions.map(i => i.customerCode)));
-    uniqueCodes.forEach(code => {
-        if (!this.customerCodes.find(c => c.code === code)) {
-            this.customerCodes.push({
-                id: this.customerCodes.length + 1,
-                code: code,
-                description: 'Auto-created',
-                commercialUserId: null,
-                status: 'Active',
-                createdAt: new Date().toISOString()
-            });
-            this.addLog(user.id, 'Auto-Create Code', `Created new customer code: ${code}`);
-        }
-    });
 
     return true;
   }
 
-  updateInstruction(id: number, updates: Partial<Instruction>, user: User) {
-    const idx = this.instructions.findIndex(i => i.id === id);
-    if (idx === -1) return;
-
-    const old = this.instructions[idx];
-    const updated = { ...old, ...updates };
-
-    if (old.status !== updated.status && updated.status === InstructionStatus.Completed) {
-        updated.completedAt = new Date().toISOString();
+  async updateInstruction(id: number, updates: Partial<Instruction>, user: User) {
+    const payload: any = {};
+    if (updates.commentsSales !== undefined) payload.comments_sales = updates.commentsSales;
+    if (updates.commentsCommercial !== undefined) payload.comments_commercial = updates.commentsCommercial;
+    if (updates.status !== undefined) {
+        payload.status = updates.status;
+        if (updates.status === InstructionStatus.Completed) {
+            payload.completed_at = new Date().toISOString();
+        }
     }
+    if (updates.currentUpdate !== undefined) payload.current_update = updates.currentUpdate;
 
-    this.instructions[idx] = updated;
-    this.addLog(user.id, 'Update Instruction', `Updated ${old.referenceNumber}. Changes: ${JSON.stringify(updates)}`);
+    const { error } = await supabase.from('instructions').update(payload).eq('id', id);
+    if (!error) {
+         await this.addLog(user.id, user.username, 'Update Instruction', `Updated instruction ID ${id}`);
+    }
   }
 
-  getKPIData() {
-    const total = this.instructions.filter(i => !i.isDeleted).length;
-    const pending = this.instructions.filter(i => !i.isDeleted && i.status === InstructionStatus.Pending).length;
-    const completed = this.instructions.filter(i => !i.isDeleted && i.status === InstructionStatus.Completed).length;
-    
-    const userStats = this.users
-        .filter(u => u.role === Role.Sales)
-        .map(u => ({
+  async getKPIData() {
+    try {
+        const { data } = await supabase.from('instructions').select('status, cre_user_id, is_deleted');
+        const validData = (data || []).filter((i: any) => !i.is_deleted);
+        
+        const total = validData.length;
+        const pending = validData.filter((i: any) => i.status === InstructionStatus.Pending).length;
+        const completed = validData.filter((i: any) => i.status === InstructionStatus.Completed).length;
+        
+        const users = await this.getUsers();
+        const salesUsers = users.filter(u => u.role === Role.Sales);
+        
+        const userStats = salesUsers.map(u => ({
             name: u.username,
-            count: this.instructions.filter(i => i.creUserId === u.id).length
+            count: validData.filter((i: any) => i.cre_user_id === u.id).length
         }));
-    
-    return { total, pending, completed, userStats };
-  }
-
-  generateReference(creShort: string): string {
-      const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-      return `${dateStr}${creShort}XXX`; 
+        
+        return { total, pending, completed, userStats };
+    } catch (e) {
+        return { total: 0, pending: 0, completed: 0, userStats: [] };
+    }
   }
 }
 
-export const mockStore = new MockStore();
+export const mockStore = new SupabaseStore();

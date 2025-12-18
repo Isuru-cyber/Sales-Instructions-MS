@@ -9,7 +9,6 @@ import {
   LogOut, 
   Menu, 
   ChevronLeft,
-  User as UserIcon,
   X
 } from 'lucide-react';
 import { useAuth } from '../App';
@@ -58,6 +57,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   ];
 
   const filteredMenu = menuItems.filter(item => item.roles.includes(user.role));
+  const userInitial = user.username.charAt(0).toUpperCase();
 
   return (
     <div className="h-screen w-full bg-background flex overflow-hidden">
@@ -71,11 +71,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className="h-16 flex-none flex items-center justify-center border-b border-gray-100 relative">
              {isSidebarOpen ? (
                  <div className="flex items-center gap-2 font-bold text-xl text-primary">
-                    <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white">DF</div>
-                    <span>DeliveryFlow</span>
+                    <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white">IMS</div>
+                    <span>Instructions MS</span>
                  </div>
              ) : (
-                <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white font-bold">DF</div>
+                <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white font-bold">IMS</div>
              )}
              
              {/* Mobile Close Button */}
@@ -110,7 +110,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               {isSidebarOpen && (
                   <div className="flex items-center gap-3 overflow-hidden">
                       <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold shrink-0">
-                          {user.shortName}
+                          {userInitial}
                       </div>
                       <div className="truncate">
                           <p className="text-sm font-semibold text-gray-900 truncate">{user.username}</p>
@@ -153,8 +153,13 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                     {new Date().toLocaleDateString()}
                 </div>
                 <div className="hidden md:block w-px h-6 bg-gray-200"></div>
-                <button className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-primary">
-                    <UserIcon size={18} />
+                <button 
+                    onClick={() => navigate('/settings')}
+                    className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-primary transition-colors"
+                >
+                    <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-primary text-xs font-bold">
+                        {userInitial}
+                    </div>
                     <span className="hidden sm:inline">Profile</span>
                 </button>
             </div>

@@ -1,15 +1,31 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Card, Button, Input, Select, Modal } from '../components/Common';
 import { useAuth } from '../App';
 import { Role, User, CustomerCode } from '../types';
 import { 
     Save, User as UserIcon, Database, Clock, Plus, 
-    Search, Filter, Shield, Briefcase, DollarSign, Trash2, Lock, RefreshCw, Power, CheckCircle, Edit2, MoreHorizontal
+    Search, Filter, Shield, Briefcase, DollarSign, Trash2, Lock, RefreshCw, Power, CheckCircle, Edit2, MoreHorizontal, AlertTriangle, X
 } from 'lucide-react';
 import { mockStore } from '../services/mockService';
 
-// --- Sub-components for Tabs ---
+// --- Shared Notification Component ---
+const NotificationToast: React.FC<{ 
+    message: string; 
+    type: 'success' | 'error';
+    onClose: () => void;
+}> = ({ message, type, onClose }) => (
+    <div className={`fixed bottom-6 right-6 z-50 px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 transition-all transform translate-y-0 animate-in fade-in slide-in-from-bottom-4 duration-300 ${
+        type === 'success' ? 'bg-gray-900 text-white' : 'bg-red-600 text-white'
+    }`}>
+        {type === 'success' ? <CheckCircle size={18} className="text-green-400" /> : <AlertTriangle size={18} />}
+        <span className="font-medium text-sm">{message}</span>
+        <button onClick={onClose} className="ml-2 hover:opacity-70">
+            <X size={14} />
+        </button>
+    </div>
+);
 
+// --- Sub-components for Tabs ---
 const TabButton: React.FC<{ 
     id: string; 
     label: string; 
@@ -28,10 +44,11 @@ const TabButton: React.FC<{
 );
 
 // --- 1. Users Tab ---
-
 const UsersTab: React.FC = () => {
     const { user: currentUser } = useAuth();
-    const [users, setUsers] = useState(mockStore.users);
+    const [users, setUsers] = useState<User[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
     
     // Modal States
     const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
@@ -42,27 +59,44 @@ const UsersTab: React.FC = () => {
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [editFormData, setEditFormData] = useState({ fullName: '', username: '', role: Role.Sales, newPassword: '' });
 
-    const refreshUsers = () => setUsers([...mockStore.users]);
+    const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+        setNotification({ message, type });
+        setTimeout(() => setNotification(null), 3000);
+    };
 
-    // Add User Logic
-    const handleAddUser = () => {
+    const refreshUsers = async () => {
+        setIsLoading(true);
+        const data = await mockStore.getUsers();
+        setUsers(data);
+        setIsLoading(false);
+    };
+
+    useEffect(() => {
+        refreshUsers();
+    }, []);
+
+    const handleAddUser = async () => {
         if (!newUser.username || !newUser.shortName) return;
         if (!currentUser) return;
         
-        mockStore.addUser({
-            username: newUser.username,
-            fullName: newUser.fullName || newUser.username,
-            shortName: newUser.shortName,
-            role: newUser.role
-        }, currentUser);
-        
-        setIsAddUserModalOpen(false);
-        setNewUser({ username: '', fullName: '', shortName: '', role: Role.Sales, password: '' });
-        refreshUsers();
-        alert('User added successfully');
+        try {
+            await mockStore.addUser({
+                username: newUser.username,
+                fullName: newUser.fullName || newUser.username,
+                shortName: newUser.shortName,
+                role: newUser.role,
+                password: newUser.password
+            }, currentUser);
+            
+            setIsAddUserModalOpen(false);
+            setNewUser({ username: '', fullName: '', shortName: '', role: Role.Sales, password: '' });
+            await refreshUsers();
+            showNotification('User added successfully');
+        } catch (e) {
+            showNotification('Failed to add user', 'error');
+        }
     };
 
-    // Edit User Logic
     const openEditModal = (user: User) => {
         setEditingUser(user);
         setEditFormData({
@@ -74,33 +108,47 @@ const UsersTab: React.FC = () => {
         setIsEditUserModalOpen(true);
     };
 
-    const handleUpdateUser = () => {
+    const handleUpdateUser = async () => {
         if (!editingUser || !currentUser) return;
         
-        mockStore.updateUser(editingUser.id, {
-            fullName: editFormData.fullName,
-            username: editFormData.username,
-            role: editFormData.role,
-            password: editFormData.newPassword || undefined
-        }, currentUser);
+        try {
+            await mockStore.updateUser(editingUser.id, {
+                fullName: editFormData.fullName,
+                username: editFormData.username,
+                role: editFormData.role,
+                password: editFormData.newPassword || undefined
+            }, currentUser);
 
-        setIsEditUserModalOpen(false);
-        setEditingUser(null);
-        refreshUsers();
-        alert('User updated successfully');
+            setIsEditUserModalOpen(false);
+            setEditingUser(null);
+            await refreshUsers();
+            showNotification('User updated successfully');
+        } catch (e) {
+            showNotification('Failed to update user', 'error');
+        }
     };
 
-    const handleToggleStatus = (id: number) => {
+    const handleToggleStatus = async (id: number) => {
         if (!currentUser) return;
-        mockStore.toggleUserStatus(id, currentUser);
-        refreshUsers();
+        try {
+            await mockStore.toggleUserStatus(id, currentUser);
+            await refreshUsers();
+            showNotification('User status updated');
+        } catch (e) {
+            showNotification('Failed to toggle status', 'error');
+        }
     };
 
-    const handleDeleteUser = (id: number) => {
+    const handleDeleteUser = async (id: number) => {
         if (!currentUser) return;
         if (window.confirm('Are you sure you want to delete this user?')) {
-            mockStore.deleteUser(id, currentUser);
-            refreshUsers();
+            try {
+                await mockStore.deleteUser(id, currentUser);
+                await refreshUsers();
+                showNotification('User deleted');
+            } catch (e) {
+                showNotification('Failed to delete user', 'error');
+            }
         }
     };
     
@@ -113,8 +161,12 @@ const UsersTab: React.FC = () => {
         }
     };
 
+    if (isLoading) return <div className="p-8 text-center text-gray-500">Loading Users...</div>;
+
     return (
         <div className="space-y-6">
+            {notification && <NotificationToast message={notification.message} type={notification.type} onClose={() => setNotification(null)} />}
+            
             <div className="flex justify-between items-end">
                 <div>
                     <h3 className="text-lg font-bold text-gray-900">User Management</h3>
@@ -286,11 +338,13 @@ const UsersTab: React.FC = () => {
 };
 
 // --- 2. Mappings Tab ---
-
 const MappingsTab: React.FC = () => {
     const { user: currentUser } = useAuth();
-    const [mappings, setMappings] = useState(mockStore.customerCodes);
-    const users = mockStore.users;
+    const [mappings, setMappings] = useState<CustomerCode[]>([]);
+    const [users, setUsers] = useState<User[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+
     const [filterCode, setFilterCode] = useState('');
     const [filterUser, setFilterUser] = useState('');
     
@@ -301,21 +355,44 @@ const MappingsTab: React.FC = () => {
     const [editingMapping, setEditingMapping] = useState<CustomerCode | null>(null);
     const [editFormData, setEditFormData] = useState({ description: '', userId: '' });
 
-    const refreshMappings = () => setMappings([...mockStore.customerCodes]);
+    const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+        setNotification({ message, type });
+        setTimeout(() => setNotification(null), 3000);
+    };
 
-    const handleAddMapping = () => {
+    const refreshData = async () => {
+        setIsLoading(true);
+        const [m, u] = await Promise.all([
+            mockStore.getCustomerCodes(),
+            mockStore.getUsers()
+        ]);
+        setMappings(m);
+        setUsers(u);
+        setIsLoading(false);
+    };
+
+    useEffect(() => {
+        refreshData();
+    }, []);
+
+    const handleAddMapping = async () => {
         if (!currentUser || !newMapping.code) return;
         
-        mockStore.addMapping(
-            newMapping.code, 
-            newMapping.description, 
-            newMapping.userId ? Number(newMapping.userId) : null, 
-            currentUser
-        );
-        
-        setIsAddModalOpen(false);
-        setNewMapping({ code: '', description: '', userId: '' });
-        refreshMappings();
+        try {
+            await mockStore.addMapping(
+                newMapping.code, 
+                newMapping.description, 
+                newMapping.userId ? Number(newMapping.userId) : null, 
+                currentUser
+            );
+            
+            setIsAddModalOpen(false);
+            setNewMapping({ code: '', description: '', userId: '' });
+            await refreshData();
+            showNotification('Mapping added successfully');
+        } catch (e) {
+            showNotification('Failed to add mapping', 'error');
+        }
     };
 
     const openEditModal = (mapping: CustomerCode) => {
@@ -327,24 +404,34 @@ const MappingsTab: React.FC = () => {
         setIsEditModalOpen(true);
     };
 
-    const handleUpdateMapping = () => {
+    const handleUpdateMapping = async () => {
         if (!currentUser || !editingMapping) return;
 
-        mockStore.updateMapping(editingMapping.id, {
-            description: editFormData.description,
-            commercialUserId: editFormData.userId ? Number(editFormData.userId) : null
-        }, currentUser);
+        try {
+            await mockStore.updateMapping(editingMapping.id, {
+                description: editFormData.description,
+                commercialUserId: editFormData.userId ? Number(editFormData.userId) : null
+            }, currentUser);
 
-        setIsEditModalOpen(false);
-        setEditingMapping(null);
-        refreshMappings();
+            setIsEditModalOpen(false);
+            setEditingMapping(null);
+            await refreshData();
+            showNotification('Mapping updated successfully');
+        } catch (e) {
+            showNotification('Failed to update mapping', 'error');
+        }
     };
 
-    const handleDeleteMapping = (id: number) => {
+    const handleDeleteMapping = async (id: number) => {
         if (!currentUser) return;
         if (window.confirm('Delete this mapping?')) {
-            mockStore.deleteMapping(id, currentUser);
-            refreshMappings();
+            try {
+                await mockStore.deleteMapping(id, currentUser);
+                await refreshData();
+                showNotification('Mapping deleted');
+            } catch (e) {
+                showNotification('Failed to delete mapping', 'error');
+            }
         }
     };
 
@@ -357,9 +444,13 @@ const MappingsTab: React.FC = () => {
     });
 
     const commercialUsers = users.filter(u => u.role === Role.Commercial || u.role === Role.Admin);
+    
+    if (isLoading) return <div className="p-8 text-center text-gray-500">Loading Mappings...</div>;
 
     return (
         <div className="space-y-6">
+            {notification && <NotificationToast message={notification.message} type={notification.type} onClose={() => setNotification(null)} />}
+
             <div className="flex justify-between items-end">
                 <div>
                     <h3 className="text-lg font-bold text-gray-900">Customer Code Mappings</h3>
@@ -531,21 +622,46 @@ const MappingsTab: React.FC = () => {
 };
 
 // --- 3. Config Tab ---
-
 const ConfigTab: React.FC = () => {
-    const [cutoffStart, setCutoffStart] = useState(mockStore.settings.cutoffStart);
-    const [cutoffEnd, setCutoffEnd] = useState(mockStore.settings.cutoffEnd);
-    const [isCutoffEnabled, setIsCutoffEnabled] = useState(mockStore.settings.cutoffEnabled);
+    const [cutoffStart, setCutoffStart] = useState("10:00");
+    const [cutoffEnd, setCutoffEnd] = useState("15:00");
+    const [isCutoffEnabled, setIsCutoffEnabled] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
 
-    const handleSaveSystem = () => {
-        mockStore.settings.cutoffStart = cutoffStart;
-        mockStore.settings.cutoffEnd = cutoffEnd;
-        mockStore.settings.cutoffEnabled = isCutoffEnabled;
-        alert('System settings saved!');
+    const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+        setNotification({ message, type });
+        setTimeout(() => setNotification(null), 3000);
     };
+
+    useEffect(() => {
+        const load = async () => {
+            const s = await mockStore.getSettings();
+            setCutoffStart(s.cutoffStart);
+            setCutoffEnd(s.cutoffEnd);
+            setIsCutoffEnabled(s.cutoffEnabled);
+            setIsLoading(false);
+        };
+        load();
+    }, []);
+
+    const handleSaveSystem = async () => {
+        try {
+            await mockStore.saveSettings({
+                cutoffStart, cutoffEnd, cutoffEnabled: isCutoffEnabled, autoDeleteDays: 14, lastBackup: null
+            });
+            showNotification('System settings saved');
+        } catch (e) {
+            showNotification('Failed to save settings', 'error');
+        }
+    };
+    
+    if (isLoading) return <div>Loading config...</div>;
 
     return (
         <div className="space-y-6">
+            {notification && <NotificationToast message={notification.message} type={notification.type} onClose={() => setNotification(null)} />}
+
             <div className="flex justify-between items-end">
                  <div>
                     <h3 className="text-lg font-bold text-gray-900">System Configuration</h3>
@@ -607,32 +723,48 @@ const ConfigTab: React.FC = () => {
 };
 
 // --- 4. Data Tab (Backups) ---
-
 const DataTab: React.FC = () => {
     const { user: currentUser } = useAuth();
+    const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
 
-    const handleBackup = () => {
-        const data = mockStore.getBackupData();
-        const blob = new Blob([data], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `deliveryflow_backup_${new Date().toISOString().slice(0, 10)}.json`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+        setNotification({ message, type });
+        setTimeout(() => setNotification(null), 3000);
     };
 
-    const handleCleanup = () => {
+    const handleBackup = async () => {
+        try {
+            const data = await mockStore.getBackupData();
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `deliveryflow_backup_${new Date().toISOString().slice(0, 10)}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showNotification('Backup generated');
+        } catch (e) {
+            showNotification('Backup failed', 'error');
+        }
+    };
+
+    const handleCleanup = async () => {
         if (!currentUser) return;
         if (window.confirm("Are you sure? This will permanently delete old completed instructions.")) {
-            const count = mockStore.performCleanup(currentUser);
-            alert(`Cleanup complete. Removed ${count} old records.`);
+            try {
+                const count = await mockStore.performCleanup(currentUser);
+                showNotification(`Cleanup complete. Removed ${count} records.`);
+            } catch (e) {
+                showNotification('Cleanup failed', 'error');
+            }
         }
     };
 
     return (
         <div className="space-y-6">
+            {notification && <NotificationToast message={notification.message} type={notification.type} onClose={() => setNotification(null)} />}
+
             <div>
                 <h3 className="text-lg font-bold text-gray-900">Data & Maintenance</h3>
                 <p className="text-gray-500 text-sm mt-1">Manage backups and data retention policies.</p>
@@ -663,33 +795,48 @@ const DataTab: React.FC = () => {
 };
 
 // --- 5. Profile Settings (Non-Admin View) ---
-
 const ProfileSettings: React.FC<{ user: User }> = ({ user }) => {
     const [currentPass, setCurrentPass] = useState('');
     const [newPass, setNewPass] = useState('');
     const [confirmPass, setConfirmPass] = useState('');
+    const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
     
-    const handleUpdate = () => {
+    const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+        setNotification({ message, type });
+        setTimeout(() => setNotification(null), 3000);
+    };
+
+    const handleUpdate = async () => {
         if (newPass !== confirmPass) {
-            alert("New passwords do not match");
+            showNotification("New passwords do not match", 'error');
             return;
         }
         if (!currentPass || !newPass) {
-             alert("Please fill in all fields");
+             showNotification("Please fill in all fields", 'error');
              return;
         }
         
-        const success = mockStore.changePassword(user.id, currentPass, newPass);
-        if (success) {
-            alert("Password updated successfully");
-            setCurrentPass('');
-            setNewPass('');
-            setConfirmPass('');
+        try {
+            const success = await mockStore.changePassword(user.id, currentPass, newPass);
+            if (success) {
+                showNotification("Password updated successfully", 'success');
+                setCurrentPass('');
+                setNewPass('');
+                setConfirmPass('');
+            } else {
+                showNotification("Failed to update password. Check current password.", 'error');
+            }
+        } catch (e) {
+            showNotification("A server error occurred.", 'error');
         }
     };
 
+    const userInitial = user.username.charAt(0).toUpperCase();
+
     return (
         <div className="max-w-4xl mx-auto space-y-6">
+            {notification && <NotificationToast message={notification.message} type={notification.type} onClose={() => setNotification(null)} />}
+
             <div>
                 <h2 className="text-2xl font-bold text-gray-800">My Profile</h2>
                 <p className="text-gray-500">Manage your account settings and password.</p>
@@ -698,7 +845,7 @@ const ProfileSettings: React.FC<{ user: User }> = ({ user }) => {
                 <Card>
                     <div className="flex items-center gap-4 mb-6">
                         <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center text-primary text-2xl font-bold">
-                            {user.shortName}
+                            {userInitial}
                         </div>
                         <div>
                             <h3 className="text-lg font-bold text-gray-900">{user.username}</h3>
@@ -747,7 +894,6 @@ const ProfileSettings: React.FC<{ user: User }> = ({ user }) => {
 };
 
 // --- Main Settings Page ---
-
 export const Settings: React.FC = () => {
     const { user } = useAuth();
     const [activeTab, setActiveTab] = useState('users');
