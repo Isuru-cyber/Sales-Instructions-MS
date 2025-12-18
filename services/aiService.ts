@@ -1,4 +1,3 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { Instruction } from "../types";
 
@@ -24,8 +23,11 @@ export const aiService = {
     }));
 
     try {
+      const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : '';
+      if (!apiKey) return "AI Summary unavailable (API Key not configured).";
+
       // Initialize AI inside the method to prevent crash on boot
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: `Analyze these pending special delivery instructions and provide a concise, professional executive summary (max 150 words). 
@@ -50,8 +52,11 @@ export const aiService = {
     if (!text || text.length < 5) return text;
 
     try {
+      const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : '';
+      if (!apiKey) return text;
+
       // Initialize AI inside the method
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: `Rewrite the following logistics comment to be clearer, more professional, and concise. Keep specific details like IDs or codes exactly as they are.
