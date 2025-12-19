@@ -3,7 +3,7 @@ import { LucideIcon } from 'lucide-react';
 
 // --- Card ---
 export const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
-  <div className={`bg-white rounded-2xl shadow-sm border border-gray-100 p-6 ${className}`}>
+  <div className={`bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 ${className}`}>
     {children}
   </div>
 );
@@ -20,9 +20,9 @@ export const Button: React.FC<ButtonProps> = ({ children, variant = 'primary', s
   
   const variants = {
     primary: "bg-primary text-white hover:bg-indigo-700 focus:ring-indigo-500",
-    secondary: "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-gray-400",
+    secondary: "bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 focus:ring-gray-400",
     danger: "bg-red-600 text-white hover:bg-red-700 focus:ring-red-500",
-    ghost: "bg-transparent text-gray-600 hover:bg-gray-100 focus:ring-gray-300",
+    ghost: "bg-transparent text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus:ring-gray-300",
   };
 
   const sizes = {
@@ -48,7 +48,7 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 
 export const Input: React.FC<InputProps> = ({ label, error, icon, className = '', ...props }) => (
   <div className="w-full">
-    {label && <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>}
+    {label && <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{label}</label>}
     <div className="relative">
       {icon && (
         <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -56,8 +56,8 @@ export const Input: React.FC<InputProps> = ({ label, error, icon, className = ''
         </div>
       )}
       <input
-        className={`w-full ${icon ? 'pl-10' : 'px-3'} py-2 rounded-lg border bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow ${
-          error ? 'border-red-500 focus:ring-red-200' : 'border-gray-300'
+        className={`w-full ${icon ? 'pl-10' : 'px-3'} py-2 rounded-lg border bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow ${
+          error ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 dark:border-gray-600'
         } ${className}`}
         {...props}
       />
@@ -74,9 +74,9 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
 
 export const Select: React.FC<SelectProps> = ({ label, options, className = '', ...props }) => (
   <div className="w-full">
-    {label && <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>}
+    {label && <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{label}</label>}
     <select
-      className={`w-full px-3 py-2 rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow ${className}`}
+      className={`w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow ${className}`}
       {...props}
     >
       {options.map((opt) => (
@@ -107,15 +107,15 @@ export const Modal: React.FC<{
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className={`bg-white rounded-2xl shadow-xl w-full ${maxWidths[size]} flex flex-col max-h-[90vh]`}>
-        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-          <h3 className="text-lg font-bold text-gray-900">{title}</h3>
+      <div className={`bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full ${maxWidths[size]} flex flex-col max-h-[90vh]`}>
+        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100">{title}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
         </div>
         <div className="p-6 overflow-y-auto">
           {children}
         </div>
-        {footer && <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex justify-end gap-3">{footer}</div>}
+        {footer && <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 rounded-b-2xl flex justify-end gap-3">{footer}</div>}
       </div>
     </div>
   );
@@ -124,12 +124,12 @@ export const Modal: React.FC<{
 // --- Status Badge ---
 export const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const styles: Record<string, string> = {
-    Pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-    Completed: 'bg-green-100 text-green-800 border-green-200',
-    Deleted: 'bg-red-100 text-red-800 border-red-200',
+    Pending: 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800/50',
+    Completed: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800/50',
+    Deleted: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50',
   };
   
-  const defaultStyle = 'bg-gray-100 text-gray-800 border-gray-200';
+  const defaultStyle = 'bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600';
 
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${styles[status] || defaultStyle}`}>

@@ -376,10 +376,15 @@ class SupabaseStore {
     }
   }
 
-  async getKPIData() {
+  async getKPIData(user: User) {
     try {
         const { data } = await supabase.from('instructions').select('status, cre_user_id, is_deleted');
-        const validData = (data || []).filter((i: any) => !i.is_deleted);
+        let validData = (data || []).filter((i: any) => !i.is_deleted);
+        
+        // Filter by user if role is Sales
+        if (user.role === Role.Sales) {
+            validData = validData.filter((i: any) => i.cre_user_id === user.id);
+        }
         
         const total = validData.length;
         const pending = validData.filter((i: any) => i.status === InstructionStatus.Pending).length;
@@ -391,7 +396,7 @@ class SupabaseStore {
         const userStats = salesUsers.map(u => ({
             name: u.username,
             count: validData.filter((i: any) => i.cre_user_id === u.id).length
-        }));
+        })).filter(stat => stat.count > 0);
         
         return { total, pending, completed, userStats };
     } catch (e) {

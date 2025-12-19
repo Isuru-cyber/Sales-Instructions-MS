@@ -9,7 +9,9 @@ import {
   LogOut, 
   Menu, 
   ChevronLeft,
-  X
+  X,
+  Moon,
+  Sun
 } from 'lucide-react';
 import { useAuth } from '../App';
 import { Role } from '../types';
@@ -24,6 +26,24 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('theme') === 'dark' || 
+        (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    }
+    return false;
+  });
+
+  // Handle dark mode toggle
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDarkMode]);
 
   // Handle responsive behavior
   useEffect(() => {
@@ -60,15 +80,15 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const userInitial = user.username.charAt(0).toUpperCase();
 
   return (
-    <div className="h-screen w-full bg-background flex overflow-hidden">
+    <div className="h-screen w-full bg-background dark:bg-gray-900 flex overflow-hidden">
       {/* Sidebar */}
       <aside 
         className={`
-          fixed md:static inset-y-0 left-0 z-40 bg-white border-r border-gray-200 flex flex-col shadow-lg transition-all duration-300 ease-in-out
+          fixed md:static inset-y-0 left-0 z-40 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col shadow-lg transition-all duration-300 ease-in-out
           ${isSidebarOpen ? 'w-64 translate-x-0' : 'w-64 -translate-x-full md:w-20 md:translate-x-0'}
         `}
       >
-        <div className="h-16 flex-none flex items-center justify-center border-b border-gray-100 relative">
+        <div className="h-16 flex-none flex items-center justify-center border-b border-gray-100 dark:border-gray-700 relative">
              {isSidebarOpen ? (
                  <div className="flex items-center gap-2 font-bold text-xl text-primary">
                     <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white">I</div>
@@ -95,7 +115,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               onClick={() => isMobile && setIsSidebarOpen(false)}
               className={({ isActive }) => `
                 flex items-center gap-3 px-3 py-3 rounded-lg transition-colors
-                ${isActive ? 'bg-indigo-50 text-primary' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}
+                ${isActive ? 'bg-indigo-50 dark:bg-indigo-900/30 text-primary' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-gray-100'}
               `}
               title={!isSidebarOpen && !isMobile ? item.label : ''}
             >
@@ -105,16 +125,16 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-gray-100 flex-none">
+        <div className="p-4 border-t border-gray-100 dark:border-gray-700 flex-none">
            <div className={`flex items-center ${isSidebarOpen ? 'justify-between' : 'justify-center'}`}>
               {isSidebarOpen && (
                   <div className="flex items-center gap-3 overflow-hidden">
-                      <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-900/40 flex items-center justify-center text-teal-700 dark:text-teal-400 font-bold shrink-0">
                           {userInitial}
                       </div>
                       <div className="truncate">
-                          <p className="text-sm font-semibold text-gray-900 truncate">{user.username}</p>
-                          <p className="text-xs text-gray-500">{user.role}</p>
+                          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">{user.username}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{user.role}</p>
                       </div>
                   </div>
               )}
@@ -136,28 +156,35 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 h-full">
         {/* Header */}
-        <header className="h-16 flex-none bg-white border-b border-gray-200 px-4 md:px-6 flex items-center justify-between z-20">
+        <header className="h-16 flex-none bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 md:px-6 flex items-center justify-between z-20">
             <div className="flex items-center gap-4">
                 <button 
                     onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
-                    className="p-2 rounded-lg hover:bg-gray-100 text-gray-600 focus:outline-none"
+                    className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 focus:outline-none"
                 >
                     {isSidebarOpen ? <ChevronLeft size={20} /> : <Menu size={20} />}
                 </button>
-                <h1 className="text-xl font-semibold text-gray-800 truncate">
+                <h1 className="text-xl font-semibold text-gray-800 dark:text-gray-100 truncate">
                     {menuItems.find(m => m.path === location.pathname)?.label || 'Dashboard'}
                 </h1>
             </div>
             <div className="flex items-center gap-4">
-                <div className="hidden md:block text-sm text-gray-500">
+                <button
+                  onClick={() => setIsDarkMode(!isDarkMode)}
+                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 focus:outline-none"
+                  title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                >
+                  {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+                </button>
+                <div className="hidden md:block text-sm text-gray-500 dark:text-gray-400">
                     {new Date().toLocaleDateString()}
                 </div>
-                <div className="hidden md:block w-px h-6 bg-gray-200"></div>
+                <div className="hidden md:block w-px h-6 bg-gray-200 dark:bg-gray-700"></div>
                 <button 
                     onClick={() => navigate('/settings')}
-                    className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-primary transition-colors"
+                    className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-primary transition-colors"
                 >
-                    <div className="w-7 h-7 rounded-full bg-indigo-100 flex items-center justify-center text-primary text-xs font-bold">
+                    <div className="w-7 h-7 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center text-primary text-xs font-bold">
                         {userInitial}
                     </div>
                     <span className="hidden sm:inline">Profile</span>
@@ -166,7 +193,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         </header>
 
         {/* Page Content Container */}
-        <main className="flex-1 relative overflow-hidden bg-gray-50/50">
+        <main className="flex-1 relative overflow-hidden bg-gray-50/50 dark:bg-gray-900">
              {/* This inner div ensures absolute positioning works for full height, padding handles spacing */}
             <div className="absolute inset-0 p-4 md:p-6 flex flex-col w-full h-full">
                 {children}

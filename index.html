@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
+        darkMode: 'class',
         theme: {
           extend: {
             colors: {
@@ -27,6 +28,9 @@
       body {
         font-family: 'Inter', sans-serif;
         background-color: hsl(240, 14%, 97%);
+      }
+      .dark body {
+        background-color: #0f172a; /* Tailwind slate-900 */
       }
     </style>
   <script type="importmap">

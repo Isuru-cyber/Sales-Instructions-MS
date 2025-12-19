@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Button, StatusBadge, Modal, Select, Input } from '../components/Common';
 import { Download, Edit2, ChevronDown, Columns, CheckCircle, AlertTriangle, X } from 'lucide-react';
@@ -28,6 +29,12 @@ export const ReviewInstructions: React.FC = () => {
     const [selectedInst, setSelectedInst] = useState<Instruction | null>(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     
+    // Add missing edit form states
+    const [editCommentsSales, setEditCommentsSales] = useState('');
+    const [editCommentsCommercial, setEditCommentsCommercial] = useState('');
+    const [editStatus, setEditStatus] = useState<InstructionStatus>(InstructionStatus.Pending);
+    const [editUpdate, setEditUpdate] = useState('');
+    
     // Notification State
     const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
     
@@ -40,21 +47,15 @@ export const ReviewInstructions: React.FC = () => {
     const [isColumnMenuOpen, setIsColumnMenuOpen] = useState(false);
     const columnMenuRef = useRef<HTMLDivElement>(null);
 
-    // Filter States
+    // Filter States - Default status set to Pending
     const [filters, setFilters] = useState({
         salesOrder: '',
         productionOrder: '',
         assignedTo: '',
-        status: '',
+        status: InstructionStatus.Pending as string,
         currentUpdate: '',
         submittedBy: ''
     });
-
-    // Edit states
-    const [editCommentsSales, setEditCommentsSales] = useState('');
-    const [editCommentsCommercial, setEditCommentsCommercial] = useState('');
-    const [editStatus, setEditStatus] = useState<InstructionStatus>(InstructionStatus.Pending);
-    const [editUpdate, setEditUpdate] = useState('');
 
     useEffect(() => {
         loadData();
@@ -118,7 +119,13 @@ export const ReviewInstructions: React.FC = () => {
     }, [instructions, filters, users]);
 
     const hasActiveFilters = useMemo(() => {
-        return Object.values(filters).some(val => val !== '');
+        // Check if anything is filtered beyond the default "Pending" status
+        return filters.salesOrder !== '' || 
+               filters.productionOrder !== '' || 
+               filters.assignedTo !== '' || 
+               filters.status !== InstructionStatus.Pending || 
+               filters.currentUpdate !== '' || 
+               filters.submittedBy !== '';
     }, [filters]);
 
 
@@ -130,6 +137,7 @@ export const ReviewInstructions: React.FC = () => {
 
     const handleEdit = (inst: Instruction) => {
         setSelectedInst(inst);
+        // Fix: Use the added state setters
         setEditCommentsSales(inst.commentsSales);
         setEditCommentsCommercial(inst.commentsCommercial);
         setEditStatus(inst.status);
@@ -151,6 +159,7 @@ export const ReviewInstructions: React.FC = () => {
     const handleSave = async () => {
         if (!selectedInst || !user) return;
         
+        // Fix: Use the added state values
         await mockStore.updateInstruction(selectedInst.id, {
             commentsSales: editCommentsSales,
             commentsCommercial: editCommentsCommercial,
@@ -180,11 +189,11 @@ export const ReviewInstructions: React.FC = () => {
             salesOrder: '',
             productionOrder: '',
             assignedTo: '',
-            status: '',
+            status: InstructionStatus.Pending as string, // Clear returns to default "Pending" view
             currentUpdate: '',
             submittedBy: ''
         });
-        showNotification('Filters cleared');
+        showNotification('Filters reset to default');
     };
 
     const handleExport = () => {
@@ -309,7 +318,7 @@ export const ReviewInstructions: React.FC = () => {
                         value={filters.status}
                         onChange={(e) => handleFilterChange('status', e.target.value)}
                         options={[
-                            { label: 'Filter by Status...', value: '' },
+                            { label: 'All Statuses', value: '' },
                             ...uniqueValues.statuses.map(v => ({ label: v, value: v }))
                         ]}
                         className="text-sm"
@@ -451,6 +460,7 @@ export const ReviewInstructions: React.FC = () => {
                     </>
                 }
             >
+                {/* ... (Edit modal content) */}
                 <div className="space-y-6">
                     <div className="grid grid-cols-2 gap-4 bg-gray-50 p-4 rounded-lg text-sm">
                         <div><span className="text-gray-500">Customer:</span> <span className="font-medium">{selectedInst?.customerCode}</span></div>
