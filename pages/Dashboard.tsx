@@ -4,17 +4,24 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { mockStore } from '../services/mockService';
 import { FileText, Clock, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../App';
+import { AppSettings } from '../types';
 
 export const Dashboard: React.FC = () => {
     const { user } = useAuth();
     const [stats, setStats] = useState<any>(null);
+    const [settings, setSettings] = useState<AppSettings | null>(null);
     const [recentInstructions, setRecentInstructions] = useState<any[]>([]);
 
     const loadData = async () => {
         if (!user) return;
-        const data = await mockStore.getKPIData();
-        setStats(data);
-        const instructions = await mockStore.getInstructions(user);
+        const [kpiData, appSettings, instructions] = await Promise.all([
+            mockStore.getKPIData(),
+            mockStore.getSettings(),
+            mockStore.getInstructions(user)
+        ]);
+        
+        setStats(kpiData);
+        setSettings(appSettings);
         setRecentInstructions(instructions.slice(0, 5));
     };
 
@@ -65,42 +72,53 @@ export const Dashboard: React.FC = () => {
                         <h3 className="text-2xl font-bold text-gray-900">{stats.completed}</h3>
                     </div>
                 </Card>
-                <Card className="flex items-center gap-4 border-l-4 border-l-red-500">
-                    <div className="p-3 bg-red-50 text-red-600 rounded-full">
+                <Card className={`flex items-center gap-4 border-l-4 ${settings?.cutoffEnabled ? 'border-l-red-500' : 'border-l-gray-400'}`}>
+                    <div className={`p-3 rounded-full ${settings?.cutoffEnabled ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-400'}`}>
                         <AlertTriangle size={24} />
                     </div>
                     <div>
                         <p className="text-sm text-gray-500 font-medium">Cutoff Status</p>
-                        <h3 className="text-lg font-bold text-gray-900">Active (15:00)</h3>
+                        {settings?.cutoffEnabled ? (
+                            <div>
+                                <h3 className="text-lg font-bold text-gray-900">Enabled</h3>
+                                <p className="text-xs text-red-500 font-medium">{settings.cutoffStart} - {settings.cutoffEnd}</p>
+                            </div>
+                        ) : (
+                            <h3 className="text-lg font-bold text-gray-400">No Cutoff</h3>
+                        )}
                     </div>
                 </Card>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                 <Card className="h-80">
+                 <Card className="h-96 flex flex-col">
                     <h3 className="text-lg font-bold text-gray-800 mb-4">Weekly Submissions</h3>
-                    <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={lineData}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                            <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                            <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`} />
-                            <Tooltip />
-                            <Line type="monotone" dataKey="submissions" stroke="hsl(231, 48%, 48%)" strokeWidth={3} dot={{r: 4}} activeDot={{r: 6}} />
-                        </LineChart>
-                    </ResponsiveContainer>
+                    <div className="flex-1 w-full min-h-0">
+                        <ResponsiveContainer width="100%" height="100%" debounce={100}>
+                            <LineChart data={lineData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                                <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                                <Tooltip />
+                                <Line type="monotone" dataKey="submissions" stroke="hsl(231, 48%, 48%)" strokeWidth={3} dot={{r: 4}} activeDot={{r: 6}} />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </div>
                 </Card>
 
-                <Card className="h-80">
+                <Card className="h-96 flex flex-col">
                     <h3 className="text-lg font-bold text-gray-800 mb-4">Submissions by User</h3>
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={stats.userStats}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                            <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                            <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                            <Tooltip cursor={{fill: '#f9fafb'}} />
-                            <Bar dataKey="count" fill="hsl(174, 100%, 29%)" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
+                    <div className="flex-1 w-full min-h-0">
+                        <ResponsiveContainer width="100%" height="100%" debounce={100}>
+                            <BarChart data={stats.userStats} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                                <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                                <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                                <Tooltip cursor={{fill: '#f9fafb'}} />
+                                <Bar dataKey="count" fill="hsl(174, 100%, 29%)" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
                 </Card>
             </div>
 

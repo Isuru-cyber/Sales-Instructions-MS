@@ -71,11 +71,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className="h-16 flex-none flex items-center justify-center border-b border-gray-100 relative">
              {isSidebarOpen ? (
                  <div className="flex items-center gap-2 font-bold text-xl text-primary">
-                    <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white">IMS</div>
+                    <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white">I</div>
                     <span>Instructions MS</span>
                  </div>
              ) : (
-                <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white font-bold">IMS</div>
+                <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white font-bold">I</div>
              )}
              
              {/* Mobile Close Button */}

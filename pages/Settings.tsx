@@ -4,7 +4,7 @@ import { useAuth } from '../App';
 import { Role, User, CustomerCode } from '../types';
 import { 
     Save, User as UserIcon, Database, Clock, Plus, 
-    Search, Filter, Shield, Briefcase, DollarSign, Trash2, Lock, RefreshCw, Power, CheckCircle, Edit2, MoreHorizontal, AlertTriangle, X
+    Trash2, Power, CheckCircle, Edit2, MoreHorizontal, AlertTriangle, X, Briefcase
 } from 'lucide-react';
 import { mockStore } from '../services/mockService';
 
@@ -626,6 +626,7 @@ const ConfigTab: React.FC = () => {
     const [cutoffStart, setCutoffStart] = useState("10:00");
     const [cutoffEnd, setCutoffEnd] = useState("15:00");
     const [isCutoffEnabled, setIsCutoffEnabled] = useState(false);
+    const [autoDeleteDays, setAutoDeleteDays] = useState(14);
     const [isLoading, setIsLoading] = useState(true);
     const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
 
@@ -640,6 +641,7 @@ const ConfigTab: React.FC = () => {
             setCutoffStart(s.cutoffStart);
             setCutoffEnd(s.cutoffEnd);
             setIsCutoffEnabled(s.cutoffEnabled);
+            setAutoDeleteDays(s.autoDeleteDays);
             setIsLoading(false);
         };
         load();
@@ -648,15 +650,19 @@ const ConfigTab: React.FC = () => {
     const handleSaveSystem = async () => {
         try {
             await mockStore.saveSettings({
-                cutoffStart, cutoffEnd, cutoffEnabled: isCutoffEnabled, autoDeleteDays: 14, lastBackup: null
+                cutoffStart, 
+                cutoffEnd, 
+                cutoffEnabled: isCutoffEnabled, 
+                autoDeleteDays, 
+                lastBackup: null
             });
-            showNotification('System settings saved');
+            showNotification('System configuration saved successfully', 'success');
         } catch (e) {
             showNotification('Failed to save settings', 'error');
         }
     };
     
-    if (isLoading) return <div>Loading config...</div>;
+    if (isLoading) return <div className="p-8 text-center text-gray-400">Loading system settings...</div>;
 
     return (
         <div className="space-y-6">
@@ -682,11 +688,11 @@ const ConfigTab: React.FC = () => {
                         <input 
                             type="checkbox" 
                             id="cutoffToggle"
-                            className="w-4 h-4 text-primary rounded border-yellow-300 focus:ring-yellow-500"
+                            className="w-5 h-5 text-primary rounded border-yellow-300 focus:ring-primary cursor-pointer"
                             checked={isCutoffEnabled}
                             onChange={(e) => setIsCutoffEnabled(e.target.checked)}
                         />
-                        <label htmlFor="cutoffToggle" className="font-medium cursor-pointer select-none">Enable Daily Submission Cutoff</label>
+                        <label htmlFor="cutoffToggle" className="font-semibold cursor-pointer select-none">Enable Daily Submission Cutoff</label>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <Input 
@@ -695,7 +701,7 @@ const ConfigTab: React.FC = () => {
                             value={cutoffStart}
                             onChange={(e) => setCutoffStart(e.target.value)}
                             disabled={!isCutoffEnabled}
-                            className={!isCutoffEnabled ? 'bg-gray-50 text-gray-400' : ''}
+                            className={!isCutoffEnabled ? 'bg-gray-50 text-gray-400 border-gray-200' : ''}
                         />
                         <Input 
                             label="End Time" 
@@ -703,7 +709,7 @@ const ConfigTab: React.FC = () => {
                             value={cutoffEnd}
                             onChange={(e) => setCutoffEnd(e.target.value)}
                             disabled={!isCutoffEnabled}
-                            className={!isCutoffEnabled ? 'bg-gray-50 text-gray-400' : ''}
+                            className={!isCutoffEnabled ? 'bg-gray-50 text-gray-400 border-gray-200' : ''}
                         />
                     </div>
                 </Card>
@@ -713,8 +719,14 @@ const ConfigTab: React.FC = () => {
                         <Briefcase size={18} className="text-gray-500" /> Business Rules
                     </h4>
                     <div className="space-y-4">
-                        <Input label="Reference Prefix" value="2025..." disabled className="bg-gray-50" />
-                        <Input label="Auto-Delete Days" type="number" defaultValue={14} disabled className="bg-gray-50" />
+                        {/* Updated display label for reference prefix */}
+                        <Input label="Reference Prefix" value="YYYYMMDD + ID" disabled className="bg-gray-50 border-gray-200" />
+                        <Input 
+                            label="Auto-Delete Days" 
+                            type="number" 
+                            value={autoDeleteDays} 
+                            onChange={(e) => setAutoDeleteDays(parseInt(e.target.value) || 0)}
+                        />
                     </div>
                 </Card>
             </div>

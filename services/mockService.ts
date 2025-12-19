@@ -50,7 +50,7 @@ class SupabaseStore {
             .from('users')
             .select('*')
             .eq('username', trimmedUsername)
-            .eq('password', trimmedPassword) // Explicit password check in DB
+            .eq('password', trimmedPassword)
             .eq('is_active', true)
             .single();
         
@@ -114,7 +114,7 @@ class SupabaseStore {
   async addUser(user: Partial<User> & { password?: string }, adminUser: User): Promise<void> {
       const { data, error } = await supabase.from('users').insert({
           username: user.username,
-          password: user.password || user.username, // Default password is username
+          password: user.password || user.username,
           full_name: user.fullName,
           short_name: user.shortName,
           role: user.role,
@@ -276,14 +276,10 @@ class SupabaseStore {
     try {
         let query = supabase.from('instructions').select('*').eq('is_deleted', false).order('created_at', { ascending: false });
 
-        // Sales users can only see their own instructions
         if (user.role === Role.Sales) {
             query = query.eq('cre_user_id', user.id);
         }
         
-        // Per user request: Admin and Commercial users see ALL instructions.
-        // We do not add any additional filtering for these roles.
-
         const { data } = await query;
         return (data || []).map(mapInstruction);
     } catch (e) {
@@ -302,7 +298,11 @@ class SupabaseStore {
       const startTimeVal = startH * 60 + startM;
       const endTimeVal = endH * 60 + endM;
 
-      if (currentTimeVal >= startTimeVal && currentTimeVal <= endTimeVal) {
+      const isBlocked = startTimeVal <= endTimeVal
+          ? (currentTimeVal >= startTimeVal && currentTimeVal <= endTimeVal)
+          : (currentTimeVal >= startTimeVal || currentTimeVal <= endTimeVal);
+
+      if (isBlocked) {
         throw new Error(`Submission blocked. Cutoff active between ${settings.cutoffStart} and ${settings.cutoffEnd}.`);
       }
     }
@@ -323,7 +323,8 @@ class SupabaseStore {
 
         refCounter++;
         const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-        const refNum = `${dateStr}${user.shortName}${String(refCounter + index).padStart(3, '0')}`;
+        // Updated: YYYYMMDD + ID format (removed user short name)
+        const refNum = `${dateStr}${String(refCounter + index).padStart(4, '0')}`;
 
         return {
             reference_number: refNum,
@@ -336,7 +337,7 @@ class SupabaseStore {
             production_order: item.productionOrder || '',
             assigned_commercial_user_id: assignedUser,
             status: InstructionStatus.Pending,
-            comments_sales: item.commentsSales || '',
+            comments_sales: (item.commentsSales || '').toUpperCase(),
             comments_commercial: '',
             is_deleted: false
         };
@@ -359,7 +360,7 @@ class SupabaseStore {
 
   async updateInstruction(id: number, updates: Partial<Instruction>, user: User) {
     const payload: any = {};
-    if (updates.commentsSales !== undefined) payload.comments_sales = updates.commentsSales;
+    if (updates.commentsSales !== undefined) payload.comments_sales = updates.commentsSales.toUpperCase();
     if (updates.commentsCommercial !== undefined) payload.comments_commercial = updates.commentsCommercial;
     if (updates.status !== undefined) {
         payload.status = updates.status;

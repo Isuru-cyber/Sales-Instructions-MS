@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, Button, Input, Modal } from '../components/Common';
 import { Plus, Trash2, Save, AlertCircle } from 'lucide-react';
 import { useAuth } from '../App';
 import { mockStore } from '../services/mockService';
+import { CustomerCode, Instruction } from '../types';
 
 interface RowData {
   id: number;
@@ -20,6 +21,38 @@ export const SubmitInstructions: React.FC = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
+
+    // Suggestion states
+    const [existingCodes, setExistingCodes] = useState<string[]>([]);
+    const [existingLocations, setExistingLocations] = useState<string[]>([]);
+    const [existingSalesOrders, setExistingSalesOrders] = useState<string[]>([]);
+    const [existingProductionOrders, setExistingProductionOrders] = useState<string[]>([]);
+
+    useEffect(() => {
+        const loadSuggestions = async () => {
+            if (!user) return;
+            const [codes, instructions] = await Promise.all([
+                mockStore.getCustomerCodes(),
+                mockStore.getInstructions(user)
+            ]);
+            
+            // Full lists for primary fields
+            setExistingCodes(codes.map(c => c.code));
+            setExistingLocations(Array.from(new Set(instructions.map(i => i.location))).filter(Boolean));
+            
+            // Limited lists (max 3) for line items as requested
+            const soList = Array.from(new Set(instructions.map(i => i.salesOrder)))
+                .filter(Boolean)
+                .slice(0, 3);
+            const poList = Array.from(new Set(instructions.map(i => i.productionOrder)))
+                .filter(Boolean)
+                .slice(0, 3);
+            
+            setExistingSalesOrders(soList);
+            setExistingProductionOrders(poList);
+        };
+        loadSuggestions();
+    }, [user]);
 
     const addRow = () => {
         setRows([...rows, { id: Date.now(), salesOrder: '', productionOrder: '' }]);
@@ -72,7 +105,7 @@ export const SubmitInstructions: React.FC = () => {
                 location,
                 salesOrder: r.salesOrder,
                 productionOrder: r.productionOrder,
-                commentsSales: globalComments,
+                commentsSales: globalComments.toUpperCase(),
             }));
 
             await new Promise(resolve => setTimeout(resolve, 800));
@@ -118,27 +151,42 @@ export const SubmitInstructions: React.FC = () => {
                 <Card className="p-6">
                     <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">Shared Details</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-                        <Input 
-                            label="Customer Code" 
-                            placeholder="Start typing..." 
-                            value={customerCode}
-                            onChange={(e) => setCustomerCode(e.target.value.toUpperCase())}
-                        />
-                        <Input 
-                            label="Location" 
-                            placeholder="e.g. Warehouse A"
-                            value={location}
-                            onChange={(e) => setLocation(e.target.value.toUpperCase())}
-                        />
+                        <div className="w-full">
+                            <Input 
+                                label="Customer Code" 
+                                placeholder="Search or type..." 
+                                value={customerCode}
+                                list="customer-codes-list"
+                                onChange={(e) => setCustomerCode(e.target.value.toUpperCase())}
+                                autoComplete="off"
+                            />
+                            <datalist id="customer-codes-list">
+                                {existingCodes.map(code => <option key={code} value={code} />)}
+                            </datalist>
+                        </div>
+                        <div className="w-full">
+                            <Input 
+                                label="Location" 
+                                placeholder="e.g. WAREHOUSE A"
+                                value={location}
+                                list="locations-list"
+                                onChange={(e) => setLocation(e.target.value.toUpperCase())}
+                                autoComplete="off"
+                            />
+                            <datalist id="locations-list">
+                                {existingLocations.map(loc => <option key={loc} value={loc} />)}
+                            </datalist>
+                        </div>
                     </div>
                     <div className="w-full relative">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Global Comments (Optional)</label>
                         <textarea 
-                            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[100px] transition-all"
-                            placeholder="e.g. Special loading required for sensitive goods..."
+                            className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-h-[100px] transition-all uppercase placeholder:normal-case"
+                            placeholder="e.g. SPECIAL LOADING REQUIRED..."
                             value={globalComments}
-                            onChange={(e) => setGlobalComments(e.target.value)}
+                            onChange={(e) => setGlobalComments(e.target.value.toUpperCase())}
                         />
+                        <p className="text-[10px] text-gray-400 mt-1 uppercase italic">System: All comments are converted to uppercase.</p>
                     </div>
                 </Card>
 
@@ -155,14 +203,18 @@ export const SubmitInstructions: React.FC = () => {
                                  <Input 
                                     label="Sales Order *" 
                                     value={row.salesOrder}
+                                    list="so-list"
                                     onChange={(e) => updateRow(row.id, 'salesOrder', e.target.value)}
                                     className="flex-1"
+                                    autoComplete="off"
                                  />
                                  <Input 
                                     label="Production Order" 
                                     value={row.productionOrder}
+                                    list="po-list"
                                     onChange={(e) => updateRow(row.id, 'productionOrder', e.target.value)}
                                     className="flex-1"
+                                    autoComplete="off"
                                  />
                                  <div className="md:pb-1">
                                     <Button 
@@ -177,6 +229,14 @@ export const SubmitInstructions: React.FC = () => {
                             </div>
                         ))}
                     </div>
+                    
+                    {/* Datalists for row items (limited to 3 items) */}
+                    <datalist id="so-list">
+                        {existingSalesOrders.map(so => <option key={so} value={so} />)}
+                    </datalist>
+                    <datalist id="po-list">
+                        {existingProductionOrders.map(po => <option key={po} value={po} />)}
+                    </datalist>
                 </Card>
 
                 <div className="flex justify-end pt-4">

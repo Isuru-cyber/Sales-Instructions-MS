@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { Instruction } from "../types";
 
@@ -23,11 +24,8 @@ export const aiService = {
     }));
 
     try {
-      const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : '';
-      if (!apiKey) return "AI Summary unavailable (API Key not configured).";
-
-      // Initialize AI inside the method to prevent crash on boot
-      const ai = new GoogleGenAI({ apiKey });
+      // Fix: Always use the recommended initialization and model
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: `Analyze these pending special delivery instructions and provide a concise, professional executive summary (max 150 words). 
@@ -38,6 +36,7 @@ export const aiService = {
             systemInstruction: "You are a senior logistics coordinator assistant. Be professional, direct, and helpful."
         }
       });
+      // Fix: Use .text property directly (not a method call)
       return response.text || "Could not generate summary at this time.";
     } catch (e) {
       console.error("AI Error:", e);
@@ -52,11 +51,8 @@ export const aiService = {
     if (!text || text.length < 5) return text;
 
     try {
-      const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : '';
-      if (!apiKey) return text;
-
-      // Initialize AI inside the method
-      const ai = new GoogleGenAI({ apiKey });
+      // Fix: Always use the recommended initialization and model
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: `Rewrite the following logistics comment to be clearer, more professional, and concise. Keep specific details like IDs or codes exactly as they are.
@@ -66,6 +62,7 @@ export const aiService = {
             systemInstruction: "You are an expert in industrial logistics communication. Improve the clarity of the text provided while maintaining all technical details."
         }
       });
+      // Fix: Use .text property directly
       return response.text || text;
     } catch (e) {
       console.error("AI Error:", e);
